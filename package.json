@@ -1,0 +1,16 @@
+{
+  "name": "autokube-agent",
+  "version": "0.0.2",
+  "description": "AutoKube in-cluster agent — reverse-proxy bridge between AutoKube dashboard and Kubernetes API",
+  "type": "module",
+  "scripts": {
+    "start": "bun run src/index.ts",
+    "dev": "bun run --watch src/index.ts",
+    "build": "bun build src/index.ts --outdir dist --target bun --minify",
+    "typecheck": "tsc --noEmit"
+  },
+  "devDependencies": {
+    "@types/bun": "^1.2.0",
+    "typescript": "^5.7.0"
+  }
+}

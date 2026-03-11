@@ -1,0 +1,94 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - 'v*.*.*'
+
+permissions:
+  contents: write
+  packages: write
+
+
+jobs:
+  # ── 1. Build & push Docker image ────────────────────────────────────────────
+  docker:
+    name: Build & Push Docker Image
+    runs-on: ubuntu-latest
+    outputs:
+      version: ${{ steps.version.outputs.version }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Extract version from tag
+        id: version
+        run: echo "version=${GITHUB_REF_NAME#v}" >> "$GITHUB_OUTPUT"
+
+      - name: Docker meta
+        id: meta
+        uses: docker/metadata-action@v5
+        with:
+          images: ghcr.io/${{ github.repository_owner }}/autokube-agent
+          tags: |
+            type=semver,pattern={{version}}
+            type=semver,pattern={{major}}.{{minor}}
+            type=raw,value=latest
+
+      - name: Log in to GitHub Container Registry
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Build and push
+        uses: docker/build-push-action@v5
+        with:
+          context: .
+          push: true
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
+
+  # ── 3. Create GitHub Release ─────────────────────────────────────────────────
+  release-notes:
+    name: GitHub Release
+    runs-on: ubuntu-latest
+    needs: [docker]
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Create Release
+        uses: softprops/action-gh-release@v2
+        with:
+          generate_release_notes: true
+          files: .cr-release-packages/*.tgz
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+  # ── 3. Update Helm Chart ────────────────────────────────────────────────────
+  update-chart:
+    name: Update Chart
+    runs-on: ubuntu-latest
+    needs: docker
+    steps:
+      - name: Update chart
+        env:
+          VERSION: ${{ needs.docker.outputs.version }}
+        run: |
+          git clone https://${{ github.actor }}:${{ secrets.CHART_PAT }}@github.com/autokubeio/autokube-charts.git
+          cd autokube-charts/charts/autokube-agent
+
+          # Update image tag in values.yaml
+          sed -i "s/tag:.*/tag: \"${VERSION}\"/" values.yaml
+
+          # Update appVersion in Chart.yaml
+          sed -i "s/^appVersion:.*/appVersion: \"${VERSION}\"/" Chart.yaml
+
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add values.yaml Chart.yaml
+          git commit -m "chore: bump autokube-agent to ${VERSION}"
+          git push
+
