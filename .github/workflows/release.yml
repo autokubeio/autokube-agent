@@ -83,8 +83,9 @@ jobs:
           # Update image tag in values.yaml
           sed -i "s/tag:.*/tag: \"${VERSION}\"/" values.yaml
 
-          # Update appVersion in Chart.yaml
+          # Update appVersion and version in Chart.yaml
           sed -i "s/^appVersion:.*/appVersion: \"${VERSION}\"/" Chart.yaml
+          sed -i "s/^version:.*/version: \"${VERSION}\"/" Chart.yaml
 
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
