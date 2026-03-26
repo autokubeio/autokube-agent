@@ -120,7 +120,9 @@ export class K8sClient {
 		}
 
 		if (options.body) {
-			reqHeaders['Content-Type'] = 'application/json';
+			if (!reqHeaders['Content-Type']) {
+				reqHeaders['Content-Type'] = 'application/json';
+			}
 			reqHeaders['Content-Length'] = Buffer.byteLength(options.body).toString();
 		}
 
